@@ -27,11 +27,12 @@ namespace CompileAndRunCodeFunction
 
             string name = req.Query["name"];
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            string code = await new StreamReader(req.Body).ReadToEndAsync();
             //dynamic data = JsonConvert.DeserializeObject(requestBody);
             //string code = data?.code;
 
-            string code = JsonSerializer.Deserialize<CompileAndRunDTO>(requestBody).Code;
+            //string code = JsonSerializer.Deserialize<CompileAndRunDTO>(requestBody).Code;
+
 
             string result = CompileAndRun(code);
 
@@ -45,11 +46,27 @@ namespace CompileAndRunCodeFunction
             public string Code { get; set; }
         }
 
+        public class CodeExecutionResult
+        {
+            public bool? EcounteredCompilerErrors { get; set; }
+            public List<Error> CompilerErrors { get; set; }
+        }
 
+        public class Error
+        {
+            public string Location { get; set; }
+            public string Message { get; set; }
+        }
 
         public static string CompileAndRun(string code)
         {
-            code = code.Replace("[!DOUBLE-QUOTES-REPLACED-HERE!]", @"""");
+            //baaa
+            //code = code.Replace("[!DOUBLE-QUOTES-REPLACED-HERE!]", @"""");
+
+
+
+
+
             // define source code, then parse it (to the type used for compilation)
             //SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(@"
             //    using System;
@@ -68,11 +85,20 @@ namespace CompileAndRunCodeFunction
 
             // define other necessary objects for compilation
             string assemblyName = Path.GetRandomFileName();
-            MetadataReference[] references = new MetadataReference[]
+
+            //paths to all the framework.dll files
+            var allPathsToFrameworkDllFiles = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator);
+            List<MetadataReference> references = new List<MetadataReference>();
+            foreach (var dllPath in allPathsToFrameworkDllFiles)
             {
-                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location)
-            };
+                references.Add(MetadataReference.CreateFromFile(dllPath));
+            }
+
+            //MetadataReference[] references = new MetadataReference[]
+            //{
+            //    MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            //    MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location)
+            //};
 
             // analyse and generate IL code from syntax tree
             CSharpCompilation compilation = CSharpCompilation.Create(
@@ -93,10 +119,23 @@ namespace CompileAndRunCodeFunction
                         diagnostic.IsWarningAsError ||
                         diagnostic.Severity == DiagnosticSeverity.Error);
 
+                    var errors = new List<Error>();
                     foreach (Diagnostic diagnostic in failures)
                     {
                         Console.Error.WriteLine("{0}: {1}", diagnostic.Id, diagnostic.GetMessage());
+
+                        var error = new Error();
+
+                        error.Location = code.Substring(diagnostic.Location.SourceSpan.Start, diagnostic.Location.SourceSpan.Length);
+                        error.Message = "{" + diagnostic.Id + "}: {" + diagnostic.GetMessage() + "}";
+                        //errors.Add("{" + diagnostic.Id + "}: {" + diagnostic.GetMessage() + "}");
+                        //errors.Add(diagnostic.ToString());
+                        errors.Add(error);
                     }
+                    var ceResult = new CodeExecutionResult();
+                    ceResult.EcounteredCompilerErrors = true;
+                    ceResult.CompilerErrors = errors;
+                    return JsonSerializer.Serialize(ceResult);
                 }
                 else
                 {
