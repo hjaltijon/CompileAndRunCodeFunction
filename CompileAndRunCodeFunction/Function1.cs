@@ -144,21 +144,38 @@ namespace CompileAndRunCodeFunction
                     Assembly assembly = Assembly.Load(ms.ToArray());
 
                     // create instance of the desired class and call the desired function
-                    Type type = assembly.GetType("RoslynCompileSample.Writer");
+                    Type type = assembly.GetType("TeacherTestingNameSpace.TeacherTestingClass");
                     object obj = Activator.CreateInstance(type);
                     //string asdf = (string) type.InvokeMember("Write",
                     //    BindingFlags.Default | BindingFlags.InvokeMethod,
                     //    null,
                     //    obj,
                     //    new object[] { "Hello World" });
-                    return (string)type.InvokeMember("Write",
+
+                    try
+                    {
+                        string executionResult = (string)type.InvokeMember("TeacherTestingFunction",
                         BindingFlags.Default | BindingFlags.InvokeMethod,
                         null,
                         obj,
                         null);
+                        return "{\"Tests\":" + executionResult + "}";
+                    }
+                    catch (Exception ex)
+                    {
+                        var errors = new List<Error>();
+                        var error = new Error();
+                        error.Location = "";
+                        error.Message = ex.InnerException?.Message;
+                        errors.Add(error);
+                        var ceResult = new CodeExecutionResult();
+                        ceResult.EcounteredCompilerErrors = true;
+                        ceResult.CompilerErrors = errors;
+                        return JsonSerializer.Serialize(ceResult);
+                    }
+                    
                 }
             }
-            return "ERROR?? :O";
         }
 
 
